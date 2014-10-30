@@ -66,14 +66,15 @@ var randomnumber=Math.floor(Math.random()*151);
 	
 var params = {
 			  TableName: 'twittMapNew', 
-			  AttributesToGet: ['tweetID', 'latitude', 'longitude'],
+			  AttributesToGet: ['tweetID', 'latitude', 'longitude', 'keyword'],
 			  Limit: randomnumber,
-			  
+			  //Exclusive Start Key - Wasn't able to set this from the cookie.
 	}
 	
 
 markers = [];
 coords = [];
+labels = [];
 iterator = 0;
 iterator_coords = 0;
 
@@ -90,7 +91,9 @@ iterator_coords = 0;
 		for (var ii in data.Items) {
 			var curTweet = data.Items[ii];
 			var temp_latLng= new google.maps.LatLng(parseFloat(curTweet.latitude.S), parseFloat(curTweet.longitude.S));
+			var temp_label = curTweet.keyword.S
 			coords.push(temp_latLng);
+			labels.push(temp_label);
 			console.log("Coordinate" + coords[iterator_coords]);
 			iterator_coords++;
 		}
@@ -103,6 +106,7 @@ iterator_coords = 0;
 		    position: coords[iterator],
 		    map: map,
 		    draggable: false,
+		    title: labels[iterator]
 		}));
 		  iterator++;
 	  }	  
