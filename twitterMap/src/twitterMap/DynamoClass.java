@@ -61,6 +61,18 @@ import twitterMap.BasicClass.*;
 import twitterMap.SentimentClassifer.*;
 import twitter4j.*;
 
+import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.auth.ClasspathPropertiesFileCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.sns.model.CreateTopicRequest;
+import com.amazonaws.services.sns.model.CreateTopicResult;
+import com.amazonaws.services.sns.model.SubscribeRequest;
+import com.amazonaws.services.sns.model.PublishRequest;
+import com.amazonaws.services.sns.model.PublishResult;
+import com.amazonaws.services.sns.model.DeleteTopicRequest;
+
+
 public class DynamoClass {
 	
 	
@@ -79,6 +91,8 @@ public class DynamoClass {
 	
 	static AmazonDynamoDBClient dynamo;
 	static AmazonSQS sqs;
+	static AmazonSNSClient snsClient;
+	static String topicArn;
 	static String dynamoTableName = "twitterDB";
 	static String queueName = "TwitterQueue";
 	static String queueUrl = null;
@@ -171,6 +185,40 @@ public class DynamoClass {
 	}
 	
 	
+	public static int initSNS() {
+		
+		AWSCredentials credentials = null;
+		
+		try {
+			credentials = new PropertiesCredentials(
+					 DynamoClass.class.getResourceAsStream("AwsCredentials.properties"));
+			
+			/*credentials = new ProfileCredentialsProvider("default").getCredentials();*/
+			
+			
+		} catch (Exception e) {
+		 	e.printStackTrace();
+		 	return -1;
+		}
+		
+		
+		snsClient = new AmazonSNSClient(credentials);
+		snsClient.setRegion(Region.getRegion(Regions.US_EAST_1));
+
+		CreateTopicRequest createTopicRequest = new CreateTopicRequest("TwitterMapNotification");
+		CreateTopicResult createTopicResult = snsClient.createTopic(createTopicRequest);
+		//print TopicArn
+		System.out.println(createTopicResult);
+		topicArn = createTopicResult.getTopicArn().toString();
+				
+		return 0;
+		
+		
+		
+	}
+	
+	
+	
 	public static int pushRecordToDynamo(DynamoEntryNew newDynamoEntry){
 		
 		Map<String, AttributeValue> item = new HashMap <String, AttributeValue>();
@@ -205,6 +253,12 @@ public class DynamoClass {
 		
 		if(dynamoTest.initAwsSession() != 0)
 			System.exit(-1);
+		
+		if (dynamoTest.initSNS() != 0)
+			System.exit(-1);
+		
+		
+		
 		
 		dynamoTest.setUpSQS();
 		sentClassifier.SentimentClassifier();
@@ -376,12 +430,12 @@ public class DynamoClass {
 		            	else
 		            		dynamoRecord.keyWord = "random";
 						
-						//System.out.println(dynamoRecord.toString());
-						
-						//System.out.println(Thread.currentThread().toString());
 						
 						pushRecordToDynamo(dynamoRecord);
-						
+						String msg = Long.toString(dynamoRecord.tweetID);
+						PublishRequest publishRequest = new PublishRequest(topicArn, msg);
+						PublishResult publishResult = snsClient.publish(publishRequest);
+											
 						
 					} catch (JSONException e) {
 						e.printStackTrace();
