@@ -18,13 +18,11 @@ h2 {
 	margin: 20px 0 0 0;
 	padding: 0;
 	border-bottom: 3px solid #eee;
-
 	/* icon setup */
 	padding: 0.2em 1em 0.2em 30px;
 	background-position: 0 50%;
 	background-repeat: no-repeat;
 }
-
 
 /*************************************
 SECTIONS
@@ -34,12 +32,10 @@ div#content {
 	padding: 0 30px 15px 30px;
 	background-color: #fff;
 	width: 940px;
-
 	/* box-shadow */
 	-moz-box-shadow: 0 5px 10px #aaa;
 	-webkit-box-shadow: 0 5px 10px #aaa;
 	box-shadow: 0 5px 10px #aaa;
-
 	/* bottom corners */
 	-webkit-border-bottom-right-radius: 7px;
 	-webkit-border-bottom-left-radius: 7px;
@@ -50,7 +46,6 @@ div#content {
 }
 
 /*div#content div.section {}*/
-
 div#content div.section ul {
 	margin: 0;
 	padding: 1em 0 0 2em;
@@ -76,7 +71,6 @@ div#content div.section.sdb h2 {
 	background-image: url(../images/database.png);
 }
 
-
 /*************************************
 CONTAINERS
 *************************************/
@@ -85,18 +79,29 @@ CONTAINERS
 }
 
 .container:after {
-    content: ".";
-    display: block;
-    height: 0;
-    clear: both;
-    visibility: hidden;
+	content: ".";
+	display: block;
+	height: 0;
+	clear: both;
+	visibility: hidden;
 }
-
 
 /*************************************
 GRIDS
 *************************************/
-.grid { float: left; margin-right: 20px; }
-.gridlast { margin-right: 0; }
-.grid5 { width: 300px; }
-.grid15 { width: 940px; }
+.grid {
+	float: left;
+	margin-right: 20px;
+}
+
+.gridlast {
+	margin-right: 0;
+}
+
+.grid5 {
+	width: 300px;
+}
+
+.grid15 {
+	width: 940px;
+}

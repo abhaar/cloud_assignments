@@ -5,10 +5,24 @@ import twitter4j.*;
 import twitter4j.conf.ConfigurationBuilder;
 import twitter4j.json.DataObjectFactory;
 
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 import java.util.*;
 import java.math.*;
 
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.PropertiesCredentials;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.sqs.AmazonSQS;
+import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.CreateQueueRequest;
+import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import com.amazonaws.services.sqs.model.SendMessageRequest;
+
+import twitter4j.JSONException;
 import twitter4j.Query;
 import twitter4j.QueryResult;
 import twitter4j.StallWarning;
@@ -22,6 +36,9 @@ import twitterMap.DynamoClass.*;
 public class BasicClass {
     //private final Logger logger = Logger.getLogger(TwitterApplication.class.getName());
 	
+	static AmazonSQS sqs;
+	static String queueName = "TwitterQueue";
+	static String queueUrl = null;
 	static class DynamoEntry {
 		
 		long tweetID;
@@ -29,7 +46,19 @@ public class BasicClass {
 		double latitude;
 		double longitude;
 		boolean randomData = false;
+		boolean sentiment = true;
+		
 			
+	}
+	
+	
+	static class QueueTweetEntry {
+		
+		long tweetID;
+		String tweetText;
+		double latitude;
+		double longitude;
+				
 	}
 	
 	static class CoOrdinates {
@@ -56,7 +85,7 @@ public class BasicClass {
 		
 	}
 	
-	public static int pushToDynamo(DynamoEntry newDynamoEntry) {
+	/*public static int pushToDynamo(DynamoEntry newDynamoEntry) {
 		
 		DynamoClass dynamoClass = new DynamoClass();
 		
@@ -75,7 +104,7 @@ public class BasicClass {
 			
 			return 0;
 		
-	}
+	}*/
 	
 	public static CoOrdinates getRandomGeoLocation() {
 		
@@ -134,10 +163,85 @@ public class BasicClass {
 			System.exit(-1);
 		}
 		
-		
-		
-				
+		setUpSqs();
+					
 	}
+	
+	public static int setUpSqs(){
+		
+		AWSCredentials credentials = null;
+		
+		try {
+			credentials = new PropertiesCredentials(
+					 BasicClass.class.getResourceAsStream("AwsCredentials.properties"));
+			
+						
+		} catch (Exception e) {
+		 	e.printStackTrace();
+		 	return -1;
+		}
+		
+		try {
+			sqs = new AmazonSQSClient(credentials);
+			Region usEast1 = Region.getRegion(Regions.US_EAST_1);
+			sqs.setRegion(usEast1);
+        
+        
+			CreateQueueRequest createQueueRequest = new CreateQueueRequest(queueName);
+			queueUrl = sqs.createQueue(createQueueRequest).getQueueUrl();
+			System.out.println("Queue URL: " + queueUrl);
+		
+			/*System.out.println("Sending a message to MyQueue.\n");
+            sqs.sendMessage(new SendMessageRequest(queueUrl, "This is my message text2."));
+      
+            System.out.println("Receiving messages from MyQueue.\n");
+            ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
+            List<com.amazonaws.services.sqs.model.Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+            
+            System.out.println(messages.size());
+            
+            for (com.amazonaws.services.sqs.model.Message message : messages) {
+                System.out.println("  Message");
+                System.out.println("    MessageId:     " + message.getMessageId());
+                System.out.println("    ReceiptHandle: " + message.getReceiptHandle());
+                System.out.println("    MD5OfBody:     " + message.getMD5OfBody());
+                System.out.println("    Body:          " + message.getBody());
+                for (Entry<String, String> entry : message.getAttributes().entrySet()) {
+                    System.out.println("  Attribute");
+                    System.out.println("    Name:  " + entry.getKey());
+                    System.out.println("    Value: " + entry.getValue());
+                }
+            } */
+
+		
+		} 
+		
+		catch (AmazonServiceException ase) {
+            System.out.println("Caught an AmazonServiceException, which means your request made it " +
+                    "to Amazon SQS, but was rejected with an error response for some reason.");
+            System.out.println("Error Message:    " + ase.getMessage());
+            System.out.println("HTTP Status Code: " + ase.getStatusCode());
+            System.out.println("AWS Error Code:   " + ase.getErrorCode());
+            System.out.println("Error Type:       " + ase.getErrorType());
+            System.out.println("Request ID:       " + ase.getRequestId());
+        } catch (AmazonClientException ace) {
+            System.out.println("Caught an AmazonClientException, which means the client encountered " +
+                    "a serious internal problem while trying to communicate with SQS, such as not " +
+                    "being able to access the network.");
+            System.out.println("Error Message: " + ace.getMessage());
+        }     
+			
+		return 0;
+		
+}
+	
+	public static int sendTweetToSQS(String jsonTweet) {
+		
+		
+		sqs.sendMessage(new SendMessageRequest(queueUrl, jsonTweet));
+		return 0;
+	}
+	
 	
 	
 	
@@ -170,7 +274,56 @@ public class BasicClass {
 		            
 		            for (Status tweet : tweets) {
 		            	
-		            	DynamoEntry dynamoEntry = new DynamoEntry();
+		            	
+		            	QueueTweetEntry queueEntry = new QueueTweetEntry();
+		            	queueEntry.tweetID = tweet.getId();
+		            	queueEntry.tweetText = tweet.getText();
+		            	
+		            	GeoLocation generatedGeoLocation = null;
+		            	generatedGeoLocation = tweet.getGeoLocation();
+		            	
+		            	if (generatedGeoLocation== null) {
+		            		
+		            		continue;
+		            		/*CoOrdinates generatedCoordinates = null;
+		            		generatedCoordinates = getRandomGeoLocation();
+		            		queueEntry.latitude = generatedCoordinates.latitude;
+		            		queueEntry.longitude = generatedCoordinates.longitude;*/
+		            		//queueEntry.randomData = true;
+		            		
+		            	}	
+		            	else {
+		            	
+		            		if(generatedGeoLocation.getLatitude() == 0 && generatedGeoLocation.getLongitude() == 0)
+		            			continue;
+		            			            		
+		            		queueEntry.latitude = generatedGeoLocation.getLatitude();
+		            		queueEntry.longitude = generatedGeoLocation.getLongitude();
+		            		
+		            		   		
+		            		
+		            	}
+		            	
+		            	
+		            	JSONObject obj=new JSONObject();
+		            	
+		            	  try {
+							obj.put("tweetID", new Long(queueEntry.tweetID));
+							obj.put("tweetText",new String(queueEntry.tweetText));
+			            	obj.put("latitude",new Double(queueEntry.latitude));
+			            	obj.put("longitude",new Double(queueEntry.longitude));
+						} catch (JSONException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+		            	 
+		            	  //System.out.println(obj.toString());  
+		            	  System.out.println(obj.toString());
+		            	  sendTweetToSQS(obj.toString());
+		            	  
+		            	  
+		            	
+		            	/*DynamoEntry dynamoEntry = new DynamoEntry();
 		            	dynamoEntry.tweetID = tweet.getId();
 		            	
 		            	String tweetText = tweet.getText();
@@ -203,10 +356,10 @@ public class BasicClass {
 		            	
 		            		dynamoEntry.latitude = generatedGeoLocation.getLatitude();
 		            		dynamoEntry.longitude = generatedGeoLocation.getLongitude();
-		            	}
+		            	}*/
 		            	
-		            	if(pushToDynamo(dynamoEntry)<0)
-		            		System.out.println("Skipped tweet. Continuing");
+		            	//if(pushToDynamo(dynamoEntry)<0)
+		            	//	System.out.println("Skipped tweet. Continuing");
 		            	
 		            	
 		            }

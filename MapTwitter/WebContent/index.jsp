@@ -1,12 +1,13 @@
-<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
-<%@ page import="com.amazonaws.*" %>
-<%@ page import="com.amazonaws.auth.*" %>
-<%@ page import="com.amazonaws.services.ec2.*" %>
-<%@ page import="com.amazonaws.services.ec2.model.*" %>
-<%@ page import="com.amazonaws.services.s3.*" %>
-<%@ page import="com.amazonaws.services.s3.model.*" %>
-<%@ page import="com.amazonaws.services.dynamodbv2.*" %>
-<%@ page import="com.amazonaws.services.dynamodbv2.model.*" %>
+<%@ page language="java" contentType="text/html; charset=utf-8"
+	pageEncoding="utf-8"%>
+<%@ page import="com.amazonaws.*"%>
+<%@ page import="com.amazonaws.auth.*"%>
+<%@ page import="com.amazonaws.services.ec2.*"%>
+<%@ page import="com.amazonaws.services.ec2.model.*"%>
+<%@ page import="com.amazonaws.services.s3.*"%>
+<%@ page import="com.amazonaws.services.s3.model.*"%>
+<%@ page import="com.amazonaws.services.dynamodbv2.*"%>
+<%@ page import="com.amazonaws.services.dynamodbv2.model.*"%>
 
 <%! // Share the client objects across threads to
     // avoid creating new clients for each web request
@@ -41,40 +42,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
-    <title>Hello AWS Web World!</title>
-    <link rel="stylesheet" href="styles/styles.css" type="text/css" media="screen">
+<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+<title>Hello AWS Web World!</title>
+<link rel="stylesheet" href="styles/styles.css" type="text/css"
+	media="screen">
 </head>
 <body>
-    <div id="content" class="container">
-        <div class="section grid grid5 s3">
-            <h2>Amazon S3 Buckets:</h2>
-            <ul>
-            <% for (Bucket bucket : s3.listBuckets()) { %>
-               <li> <%= bucket.getName() %> </li>
-            <% } %>
-            </ul>
-        </div>
+	<div id="content" class="container">
+		<div class="section grid grid5 s3">
+			<h2>Amazon S3 Buckets:</h2>
+			<ul>
+				<% for (Bucket bucket : s3.listBuckets()) { %>
+				<li><%= bucket.getName() %></li>
+				<% } %>
+			</ul>
+		</div>
 
-        <div class="section grid grid5 sdb">
-            <h2>Amazon DynamoDB Tables:</h2>
-            <ul>
-            <% for (String tableName : dynamo.listTables().getTableNames()) { %>
-               <li> <%= tableName %></li>
-            <% } %>
-            </ul>
-        </div>
+		<div class="section grid grid5 sdb">
+			<h2>Amazon DynamoDB Tables:</h2>
+			<ul>
+				<% for (String tableName : dynamo.listTables().getTableNames()) { %>
+				<li><%= tableName %></li>
+				<% } %>
+			</ul>
+		</div>
 
-        <div class="section grid grid5 gridlast ec2">
-            <h2>Amazon EC2 Instances:</h2>
-            <ul>
-            <% for (Reservation reservation : ec2.describeInstances().getReservations()) { %>
-                <% for (Instance instance : reservation.getInstances()) { %>
-                   <li> <%= instance.getInstanceId() %></li>
-                <% } %>
-            <% } %>
-            </ul>
-        </div>
-    </div>
+		<div class="section grid grid5 gridlast ec2">
+			<h2>Amazon EC2 Instances:</h2>
+			<ul>
+				<% for (Reservation reservation : ec2.describeInstances().getReservations()) { %>
+				<% for (Instance instance : reservation.getInstances()) { %>
+				<li><%= instance.getInstanceId() %></li>
+				<% } %>
+				<% } %>
+			</ul>
+		</div>
+	</div>
 </body>
 </html>
