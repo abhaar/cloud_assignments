@@ -82,6 +82,9 @@ public class DynamoClass {
 	static String dynamoTableName = "twitterDB";
 	static String queueName = "TwitterQueue";
 	static String queueUrl = null;
+	
+	static SentimentClassifer sentClassifier = new SentimentClassifer();
+	
 	public int initAwsSession (){
 		
 		AWSCredentials credentials = null;
@@ -198,7 +201,7 @@ public class DynamoClass {
 	public static void main(String args[]) {
 		
 		DynamoClass dynamoTest = new DynamoClass();
-		SentimentClassifer sentClassifier = new SentimentClassifer();
+		//SentimentClassifer sentClassifier = new SentimentClassifer();
 		
 		if(dynamoTest.initAwsSession() != 0)
 			System.exit(-1);
@@ -206,124 +209,193 @@ public class DynamoClass {
 		dynamoTest.setUpSQS();
 		sentClassifier.SentimentClassifier();
 		
+			MonitorThread monitor = dynamoTest.new MonitorThread();
+			monitor.start();
+		
 			ThreadB[] threadpool = new ThreadB[5];
 			
 			for (int i = 0; i<5; i++) {
 			
-				threadpool[i] = dynamoTest.new ThreadB();
-		
-			}
-		GetQueueAttributesRequest getQueueAttributesRequest = new GetQueueAttributesRequest();
-		getQueueAttributesRequest.withQueueUrl(queueUrl).withAttributeNames("ApproximateNumberOfMessages");
-					
-		GetQueueAttributesResult getQueueAttributesResult = new GetQueueAttributesResult();
-		int mostRecentThread = 0;
-		
-		while(1 < 2) {
-		
-		getQueueAttributesResult = sqs.getQueueAttributes(getQueueAttributesRequest);
-			
-		int approximateNumberOfMessages = 0;
-		Map <String, String> attributes = getQueueAttributesResult.getAttributes();
-		
-		approximateNumberOfMessages = Integer.parseInt(attributes.get("ApproximateNumberOfMessages"));	
-		//System.out.println("Approximate number of messages: " + approximateNumberOfMessages);
-	
-		
+				System.out.println("Starting worker thread " + i);
 				
-		if (approximateNumberOfMessages > 0)
-		{
+				threadpool[i] = dynamoTest.new ThreadB();
+				threadpool[i].start();
+						
+		/*		synchronized (threadpool[i]) {
+					
+					try {
+						threadpool[i].wait();
+					} catch(InterruptedException e){
+		                e.printStackTrace();
+		            }
+					
+					
+				}*/
+			
+			}
 			
 			
-			ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
-			receiveMessageRequest.withMaxNumberOfMessages(1);
-            List<com.amazonaws.services.sqs.model.Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
-                      
-            if (messages.size() < 1)
-            	continue;
-            
-            for (com.amazonaws.services.sqs.model.Message message : messages) {
-            	
-             	 try {
-					JSONObject obj = new JSONObject(message.getBody());
-					String tweet = obj.getString("tweetText");
-					String sent = sentClassifier.classify(tweet);
-										
-					DynamoEntryNew dynamoRecord = new DynamoEntryNew();
-					dynamoRecord.tweetID = obj.getLong("tweetID");
-						String latitude = obj.getString("latitude");
-						String longitude = obj.getString("longitude");
-					
-					dynamoRecord.latitude = Double.parseDouble(latitude);
-					dynamoRecord.longitude = Double.parseDouble(longitude);
-					dynamoRecord.sentiment = sent;
-					
-					if(tweet.toLowerCase().contains(keywords.get(0).toLowerCase()))
-	            		dynamoRecord.keyWord = (keywords.get(0).toLowerCase());            	
-	            	else if(tweet.toLowerCase().contains(keywords.get(1).toLowerCase()))
-	            		dynamoRecord.keyWord = (keywords.get(1).toLowerCase());
-	            	else if(tweet.toLowerCase().contains(keywords.get(2).toLowerCase()))
-	            		dynamoRecord.keyWord = (keywords.get(2).toLowerCase());
-	            	else if(tweet.toLowerCase().contains(keywords.get(3).toLowerCase()))
-	            		dynamoRecord.keyWord = (keywords.get(3).toLowerCase());
-	            	else if(tweet.toLowerCase().contains(keywords.get(4).toLowerCase()))
-	            		dynamoRecord.keyWord = (keywords.get(4).toLowerCase());
-	            	else
-	            		dynamoRecord.keyWord = "random";
-					
-					//System.out.println(dynamoRecord.toString());
-					
-					pushRecordToDynamo(dynamoRecord);
-					
-					
-				} catch (JSONException e) {
-					e.printStackTrace();
-				}
-            	
-            }
+		while (1 < 2)
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			
-            			
+	}
+	
+	class MonitorThread extends Thread {
+		
+		
+		@Override
+		public void run() {
+			DynamoClass dynamoTest = new DynamoClass();
+		
+		while (1 < 2) {	
+			
+		int i = 0;	
+		
+		
+		int approximateNumberOfMessages = 0;
+		
+		while (i < 10) {
+			GetQueueAttributesRequest getQueueAttributesRequest = new GetQueueAttributesRequest();
+			getQueueAttributesRequest.withQueueUrl(queueUrl).withAttributeNames("ApproximateNumberOfMessages");
+			GetQueueAttributesResult getQueueAttributesResult = new GetQueueAttributesResult();
+			getQueueAttributesResult = sqs.getQueueAttributes(getQueueAttributesRequest);
+			Map <String, String> attributes = getQueueAttributesResult.getAttributes();
+			approximateNumberOfMessages += Integer.parseInt(attributes.get("ApproximateNumberOfMessages"));
+		
+			i++;
+		
+		}
+		approximateNumberOfMessages /= 10; 
+		System.out.println("Approx messages" + approximateNumberOfMessages);
+		int numOfThreadsRequired = 0;
+		
+		numOfThreadsRequired = approximateNumberOfMessages / 500;
+		
+		System.out.println("Num of threads needed" + numOfThreadsRequired);
+		
+		if (numOfThreadsRequired < 1) {
+			try {
+				Thread.sleep(10000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			continue;
+
+		}
+				
+		ThreadB[] threadpool = new ThreadB[numOfThreadsRequired];
+		
+		for (i = 0; i<numOfThreadsRequired; i++) {
+			
+			System.out.println("Starting helper thread " + i);
+			threadpool[i] = dynamoTest.new ThreadB();
+			threadpool[i].start();
 		}
 		
-		}	
+		try {
+			Thread.sleep(10000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		
 	}
+	}
+}
 	
 	
 	class ThreadB extends Thread{
 	    int total;
 	    @Override
 	    public void run(){
-	        synchronized(this){
-	        	total = 0;
-	        	while(1 < 2) {
-	        	System.out.println(Thread.currentThread().toString());
-	            for(int i=0; i<100 ; i++){
-	                total += i;
-	            }
-	            //notify();
-	            try {
-					wait();
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-	        	}
-	            //while(1 < 2)
-					/*try {
-						Thread.sleep(10);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
+
+	    	GetQueueAttributesRequest getQueueAttributesRequest = new GetQueueAttributesRequest();
+			getQueueAttributesRequest.withQueueUrl(queueUrl).withAttributeNames("ApproximateNumberOfMessages");
+						
+			GetQueueAttributesResult getQueueAttributesResult = new GetQueueAttributesResult();
+			int mostRecentThread = 0;
+			
+			while(1 < 2) {
+			
+			getQueueAttributesResult = sqs.getQueueAttributes(getQueueAttributesRequest);
+				
+			int approximateNumberOfMessages = 0;
+			Map <String, String> attributes = getQueueAttributesResult.getAttributes();
+			
+			approximateNumberOfMessages = Integer.parseInt(attributes.get("ApproximateNumberOfMessages"));	
+			//System.out.println("Approximate number of messages: " + approximateNumberOfMessages);
+		
+			
+					
+			if (approximateNumberOfMessages > 0)
+			{
+				
+				
+				ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
+				receiveMessageRequest.withMaxNumberOfMessages(1);
+	            List<com.amazonaws.services.sqs.model.Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+	                      
+	            if (messages.size() < 1)
+	            	continue;
+	            
+	            for (com.amazonaws.services.sqs.model.Message message : messages) {
+	            	
+	             	 try {
+						JSONObject obj = new JSONObject(message.getBody());
+						String tweet = obj.getString("tweetText");
+						String sent = sentClassifier.classify(tweet);
+											
+						DynamoEntryNew dynamoRecord = new DynamoEntryNew();
+						dynamoRecord.tweetID = obj.getLong("tweetID");
+							String latitude = obj.getString("latitude");
+							String longitude = obj.getString("longitude");
+						
+						dynamoRecord.latitude = Double.parseDouble(latitude);
+						dynamoRecord.longitude = Double.parseDouble(longitude);
+						dynamoRecord.sentiment = sent;
+						
+						if(tweet.toLowerCase().contains(keywords.get(0).toLowerCase()))
+		            		dynamoRecord.keyWord = (keywords.get(0).toLowerCase());            	
+		            	else if(tweet.toLowerCase().contains(keywords.get(1).toLowerCase()))
+		            		dynamoRecord.keyWord = (keywords.get(1).toLowerCase());
+		            	else if(tweet.toLowerCase().contains(keywords.get(2).toLowerCase()))
+		            		dynamoRecord.keyWord = (keywords.get(2).toLowerCase());
+		            	else if(tweet.toLowerCase().contains(keywords.get(3).toLowerCase()))
+		            		dynamoRecord.keyWord = (keywords.get(3).toLowerCase());
+		            	else if(tweet.toLowerCase().contains(keywords.get(4).toLowerCase()))
+		            		dynamoRecord.keyWord = (keywords.get(4).toLowerCase());
+		            	else
+		            		dynamoRecord.keyWord = "random";
+						
+						//System.out.println(dynamoRecord.toString());
+						
+						//System.out.println(Thread.currentThread().toString());
+						
+						pushRecordToDynamo(dynamoRecord);
+						
+						
+					} catch (JSONException e) {
 						e.printStackTrace();
-					}*/
-	        
-	        
-	        }
+					}
+	            	
+	            }
+				
+	            			
+			}
+			
+		}
+	       	
 	    }
 	}
 
-	
-	
-	
-	
 
 }
