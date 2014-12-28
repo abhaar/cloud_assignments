@@ -16,7 +16,13 @@ From DynamoDB the tweets are read and plotted on a Google Map
 with the markers changing colors depending on the sentiment of the 
 tweet.
 
+The map is updated automatically as tweets are processed and pushed to Dynamo. 
+A notification is sent via SNS which is processed through a Java servlet that
+then talks to the client through the doGet and doPost methods. 
+
 For sentiment analysis, LingPipe API was used. 
+
+Assignment 3 is in the folder "sentimentAnalysis"
 
 Sankalp.
 

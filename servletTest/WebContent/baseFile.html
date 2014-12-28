@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<script
+	src="http://maps.googleapis.com/maps/api/js?key=AIzaSyAiVv0FbzGUaLboe9ztIWi5CDPpg9PkZ50&sensor=false">
+</script>
+<body>
+	<div id="googleMap" style="width: 1280px; height: 720px;"></div>
+	<form>
+		<select name=select1 onchange='OnChange(this.form.select1);'>
+			<option>Please select a keyword...</option>
+			<option>nfl</option>
+			<option>isis</option>
+			<option>canada</option>
+			<option>elections</option>
+			<option>ebola</option>
+		</select>
+	</form>
+</body>
+
+
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.0.22.min.js"></script>
+<script>
+var mapProp = {
+		  center:new google.maps.LatLng(0, 0),
+		  zoom:4,
+		  mapTypeId:google.maps.MapTypeId.ROADMAP
+		  };
+var map=new google.maps.Map(document.getElementById("googleMap")
+		  ,mapProp);
+
+
+var marker_green = 'http://maps.google.com/mapfiles/ms/micons/green.png';
+var marker_yellow = 'http://maps.google.com/mapfiles/ms/micons/yellow.png';
+var marker_red = 'http://maps.google.com/mapfiles/ms/micons/red.png';
+
+var img_red = document.createElement('img');
+var img_green = document.createElement('img');
+var img_yellow = document.createElement('img');
+
+img_red.src = marker_red;
+img_green.src = marker_green;
+img_yellow.src = marker_yellow;
+
+var num = 0;
+var evtSource = new EventSource("SNSServlet");
+
+evtSource.onmessage = function(e) {
+	
+	//var newElement = document.createElement("li");
+	
+
+	if(e.data.toString() == "REFRESH") {
+		console.log("Need to refresh");
+		num = num+20;
+		initialize("go");
+		
+		
+	}
+	else {
+		
+		console.log("No need to refresh");
+	}
+}
+
+
+function OnChange(dropdown)
+{
+    var myindex  = dropdown.selectedIndex
+    var SelValue = dropdown.options[myindex].value
+ 	console.log(SelValue);
+    
+    initialize(SelValue);
+    
+    return true;
+}
+
+markers = [];
+
+function setAllMap(map) {
+	  for (var i = 0; i < markers.length; i++) {
+	    markers[i].setMap(map);
+	  }
+	}
+
+function clearMarkers() {
+	  setAllMap(null);
+	  markers = [];
+	}
+
+
+	
+
+function initialize(displayKeyword)
+{
+ 
+   
+AWS.config.update({accessKeyId: 'X', secretAccessKey: 'X'});
+AWS.config.region = 'us-east-1';
+var db = new AWS.DynamoDB();
+db.listTables( function (err, data) {
+	
+	if (err){
+		alert(err);
+	}
+	else {
+  		console.log(data.TableNames);
+  	
+	}
+});
+
+lastEvalKey = 0;
+
+//var sns = new AWS.SNS().client;
+
+/*Couldn't set up the subscription to SNS. Not sure if I need it here*/
+
+/* if (document.cookie.indexOf("lastEval") >= 0) {
+	
+	var myCookie = document.cookie.replace(/(?:(?:^|.*;\s*)lastEval\s*\=\s*([^;]*).*$)|^.*$/, "$1");	
+	console.log("Existing Cookie: " + myCookie);
+	lastEvalKey = myCookie;
+	}
+else {
+	
+	var params_new = {
+			  TableName: 'twitterDB', 
+			  AttributesToGet: ['tweetID', 'latitude', 'longitude'],
+			  Limit: 1
+	}
+	db.scan(params_new, function(err, data) {
+		document.cookie = "lastEval" + data.LastEvaluatedKey.tweetID.S;
+		console.log("new cookie: " + document.cookie);
+	});
+	
+	var myCookie = document.cookie.replace(/(?:(?:^|.*;\s*)lastEval\s*\=\s*([^;]*).*$)|^.*$/, "$1");	
+	console.log("Got New Cookie: " + myCookie);
+	lastEvalKey = myCookie;
+ }*/
+
+
+console.log("Last Key: "+lastEvalKey);
+var randomnumber=Math.floor(Math.random()*200);	
+	
+var params = {
+			  TableName: 'twitterDB', 
+			  AttributesToGet: ['tweetID', 'latitude', 'longitude', 'keyword', 'sentiment'],
+			  Limit: num,
+			  //Exclusive Start Key - Wasn't able to set this from the cookie.
+	}
+	
+
+coords = [];
+labels = [];
+sentiments = [];
+iterator = 0;
+iterator_coords = 0;
+	db.scan(params, function(err, data) {
+	  
+	if (err) 
+		  console.log(err); 
+	else
+		  console.log("last count: " + data.Count);
+		
+		//console.log("LastEvaluatedKey: " + data.LastEvaluatedKey.tweetID.S);
+		//document.cookie = "lastEval" + data.LastEvaluatedKey.tweetID.S;
+	  
+		for (var ii in data.Items) {
+			var curTweet = data.Items[ii];
+			var temp_latLng= new google.maps.LatLng(parseFloat(curTweet.latitude.S), parseFloat(curTweet.longitude.S));
+			var temp_label = curTweet.keyword.S
+			var temp_sentiment = curTweet.sentiment.S
+			//if(temp_label == displayKeyword) {
+				
+			coords.push(temp_latLng);
+			labels.push(temp_label);
+			sentiments.push(temp_sentiment);
+			console.log("Coordinate" + coords[iterator_coords]);
+			
+		//}
+			iterator_coords++;	
+	}		
+	  console.log("Coords length: " + coords.length);
+	  
+	  var i = 0;
+	  	   
+	 clearMarkers();
+     for(i=0;i<coords.length;i++ ) {
+    	 
+    	 console.log(sentiments[iterator]);
+    	 
+    	 if (sentiments[iterator] == 'pos')
+			var cur_image = marker_green;
+    	 else if (sentiments[iterator] == 'neu')
+    	 	var cur_image = marker_yellow;
+    	 else
+    		 var cur_image = marker_red;
+	  markers.push(new google.maps.Marker({
+		    position: coords[iterator],
+		    map: map,
+		    draggable: false,
+		    title: labels[iterator],
+	  		icon: cur_image
+	  }));
+		  iterator++;
+	  }	  
+	
+	});
+	
+		
+	
+	
+		
+}
+//google.maps.event.addDomListener(window, 'load', initialize({'refreshCount':1}));
+//google.maps.event.addDomListener(window, 'load', initialize);
+</script>
+
+</head>
+
+
+</html>
+<!-- !DOCTYPE html> -->
+
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TwittMap</title>
+<script type="text/javascript">
+//window.setTimeout(function(){ document.location.reload(true); }, 15000);
+</script>
+</head>
+<body>
+
+</body>
+</html>
